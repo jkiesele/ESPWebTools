@@ -4,6 +4,7 @@
 
 #include "Arduino.h"
 #include <vector>
+#include "LoggingBase.h"
 
 #ifdef WEBLOG_USES_TIMEMANAGER
 #include "TimeManager.h"
@@ -14,7 +15,7 @@ public:
 };
 #endif
 
-class WebLog{
+class WebLog : public LoggingBase{
 public:
     WebLog(){ 
         logMessages.reserve(10);//only last ten messages
@@ -27,8 +28,8 @@ public:
     
     void addToLog(String message);
     //convenience
-    void print(String message){addToLog(message);}
-    void println(String message){addToLog(message);}
+    void print(const String&  message){addToLog(message);}
+    void println(const String&  message){addToLog(message);}
 
     const std::vector<String>& getLogMessages(){
         return logMessages;
