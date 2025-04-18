@@ -6,25 +6,21 @@
 #include <vector>
 #include "LoggingBase.h"
 
-#ifdef WEBLOG_USES_TIMEMANAGER
-#include "TimeManager.h"
-#else //MOCK class
-class TimeManager {
-public:
-    uint32_t getUnixTime() const { return millis(); } // Mock implementation
-};
-#endif
 
 class WebLog : public LoggingBase{
 public:
-    WebLog(){ 
-        logMessages.reserve(10);//only last ten messages
-        logTimestamps.reserve(10);
-        timemanager = 0;
+    WebLog(uint8_t logSize=10):logSize(logSize){ 
+        setLogSize(logSize);
     }   
     ~WebLog(){}
 
-    void begin(TimeManager* timemanager=0);
+    void setLogSize(uint8_t logSize){
+        logSize = logSize;  
+        logMessages.reserve(logSize);
+        logTimestamps.reserve(logSize);
+    }
+
+    void begin();
     
     void addToLog(String message);
     //convenience
@@ -46,7 +42,7 @@ public:
 private:
     std::vector<String> logMessages;
     std::vector<uint32_t> logTimestamps;
-    TimeManager * timemanager;
+    uint8_t logSize;
 };
 
 extern WebLog webLog; //global instance

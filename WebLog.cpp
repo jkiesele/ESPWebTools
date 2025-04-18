@@ -1,12 +1,12 @@
 
 #include "WebLog.h"
+#include <TimeProviderBase.h>
 
 WebLog webLog; //global instance
 
-void WebLog::begin(TimeManager* timemanager){
+void WebLog::begin(){
     logMessages.clear();
     logTimestamps.clear();
-    this->timemanager = timemanager;
 }
 
 void WebLog::addToLog(String message){
@@ -14,13 +14,13 @@ void WebLog::addToLog(String message){
         return;
     }
     //FIFO max 10
-    if(logMessages.size() >= 10){
+    if(logMessages.size() >= logSize){
         logMessages.erase(logMessages.begin());
         logTimestamps.erase(logTimestamps.begin());
     }
     uint32_t timestamp = 0;
-    if(timemanager){
-        timestamp = timemanager->getUnixTime();
+    if(gTimeProvider){
+        timestamp = gTimeProvider->getUnixTime();
     }
     logMessages.push_back(message);
     logTimestamps.push_back(timestamp);
