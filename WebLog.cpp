@@ -9,11 +9,21 @@ void WebLog::begin(){
     logTimestamps.clear();
 }
 
-void WebLog::addToLog(String message){
+void WebLog::addToLog(String message, bool newTimeStamp){
     if(!turnedOn){
         return;
     }
-    //FIFO max 10
+
+    if(! newTimeStamp){//append to the last entry
+        if(logMessages.size() > 0){
+            logMessages.back() += message;
+            if(mirrorToSerial)
+                Serial.print(message);
+            return;
+        }
+    }
+
+    //FIFO max 
     if(logMessages.size() >= logSize){
         logMessages.erase(logMessages.begin());
         logTimestamps.erase(logTimestamps.begin());

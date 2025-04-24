@@ -22,10 +22,16 @@ public:
 
     void begin();
     
-    void addToLog(String message);
+    void addToLog(String message, bool newTimeStamp=true);
     //convenience
-    void print(const String&  message){addToLog(message);}
-    void println(const String&  message){addToLog(message);}
+    void print(const String&  message){
+        addToLog(message, nextEntryNewTimeStamp);
+        nextEntryNewTimeStamp = false; //for the next entry
+    }
+    void println(const String&  message){
+        addToLog(message, nextEntryNewTimeStamp);
+        nextEntryNewTimeStamp = true; //for the next entry
+    }
 
     const std::vector<String>& getLogMessages(){
         return logMessages;
@@ -43,6 +49,7 @@ private:
     std::vector<String> logMessages;
     std::vector<uint32_t> logTimestamps;
     uint8_t logSize;
+    bool nextEntryNewTimeStamp = true; //for the next entry
 };
 
 extern WebLog webLog; //global instance
