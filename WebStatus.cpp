@@ -39,13 +39,56 @@ String WebStatus::createLogText() {
 //----------------------------------------------------------------------------
 static const char STATUS_FRAGMENT[] PROGMEM = R"rawliteral(
 <style>
+
   body{font-family:Arial,sans-serif;}
-  .status-wrapper{display:inline-block;text-align:center;margin:0 15px;font-size:12px;}
-  .status-wrapper .bar { width:20px;height:100px;background:#ddd;border:1px solid #999;position:relative;overflow:hidden; }
-  .status-wrapper .fill{position:absolute;bottom:0;left:0;width:100%;background:#3498db;transition:height .5s;}
-  .status-wrapper.temp .fill{background:#e67e22;}
-  .status-label{margin-top:4px;white-space:nowrap;}
-  .status-value{font-weight:bold;}
+
+  /* add this: */
+   .status-section {
+     display: flex;            /* lay children in a row */
+     justify-content: center;  /* center the group in the page */
+     gap: 30px;                /* space between each wrapper */
+     margin-bottom: 20px;      /* if you want some breathing room below */
+   }
+
+  .status-wrapper {
+    display: flex;
+    flex-direction: column;   /* stack children vertically */
+    align-items: center;      /* center them horizontally */
+    margin: 0 15px;
+    font-size: 12px;
+  }
+    
+  
+  .status-bar-container {
+    position: relative;      /* allow its child to be absolutely positioned */
+    width: 20px;
+    height: 100px;
+    background: #ddd;
+    border: 1px solid #999;
+    margin-bottom: 10px;
+    /* remove the flex rules here */
+  }
+  
+  .status-bar-container .fill {
+    position: absolute;  /* stick the fill to the container’s bottom edge */
+    bottom: 0;
+    left:   0;
+    width: 100%;
+    background: #3498db;
+    transition: height 0.5s;
+  }
+  
+  /* Temperature bar gets its own color */
+  .status-bar-container.temp .fill {
+    background: #e67e22;
+  }
+  
+  /* Label and value */
+  .status-label,
+  .status-value {
+    text-align: center;
+  }
+
   /* Log window styling */
   #logContainer {
     background-color: #f9f9f9;
@@ -92,21 +135,32 @@ static const char STATUS_FRAGMENT[] PROGMEM = R"rawliteral(
   initStatus('{{STATUS_PATH}}','{{LOG_PATH}}');
 </script>
 
-<div class="status-wrapper">
-  <div class="bar"><div id="heapBar" class="fill"></div></div>
-  <div class="status-label">Free Heap</div>
-  <div id="heapVal" class="status-value">–</div>
+<div class="status-section">
+  <div class="status-wrapper">
+    <div class="status-bar-container">
+      <div id="heapBar" class="fill"></div>
+    </div>
+    <div class="status-label">Free Heap</div>
+    <div id="heapVal" class="status-value">0</div>
+  </div>
+
+  <div class="status-wrapper">
+    <div class="status-bar-container">
+      <div id="maxAllocBar" class="fill"></div>
+    </div>
+    <div class="status-label">Max Alloc</div>
+    <div id="maxAllocVal" class="status-value">0</div>
+  </div>
+
+  <div class="status-wrapper">
+    <div class="status-bar-container temp">
+      <div id="tempBar" class="fill"></div>
+    </div>
+    <div class="status-label">Temp °C</div>
+    <div id="tempVal" class="status-value">0</div>
+  </div>
 </div>
-<div class="status-wrapper">
-  <div class="bar"><div id="maxAllocBar" class="fill"></div></div>
-  <div class="status-label">Max Alloc</div>
-  <div id="maxAllocVal" class="status-value">–</div>
-</div>
-<div class="status-wrapper temp">
-  <div class="bar"><div id="tempBar" class="fill"></div></div>
-  <div class="status-label">Temp °C</div>
-  <div id="tempVal" class="status-value">–</div>
-</div>
+<br>
 
 <div id="logContainer"></div>
 )rawliteral";
