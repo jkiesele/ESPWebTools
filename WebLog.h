@@ -14,8 +14,8 @@ public:
     }   
     ~WebLog(){}
 
-    void setLogSize(uint8_t logSize){
-        logSize = logSize;  
+    void setLogSize(uint8_t size){
+        logSize = size;  
         logMessages.reserve(logSize);
         logTimestamps.reserve(logSize);
     }
@@ -38,6 +38,9 @@ public:
     }
     const std::vector<uint32_t>& getLogTimestamps(){
         return logTimestamps;
+    }
+    uint8_t getLogSize() const {
+        return logSize;
     }
     bool mirrorToSerial = false;
     bool turnedOn = true;
