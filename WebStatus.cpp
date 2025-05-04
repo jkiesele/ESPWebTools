@@ -10,9 +10,9 @@ String WebStatus::getSystemStatus() {
   char buf[128];
   snprintf(buf, sizeof(buf),
     "{\"heap\":%u,\"maxAlloc\":%u,\"heapTotal\":%u,\"tempC\":%.1f}",
-    ESP.getFreeHeap(),
-    ESP.getMaxAllocHeap(),
-    ESP.getHeapSize(),
+    ESP.getFreeHeap()/1024,
+    ESP.getMaxAllocHeap()/1024,
+    ESP.getHeapSize()/1024,
     temperatureRead()   // or however you read temp
   );
   return String(buf);
@@ -140,7 +140,7 @@ static const char STATUS_FRAGMENT[] PROGMEM = R"rawliteral(
     <div class="status-bar-container">
       <div id="heapBar" class="fill"></div>
     </div>
-    <div class="status-label">Free Heap</div>
+    <div class="status-label">Free Heap [k]</div>
     <div id="heapVal" class="status-value">0</div>
   </div>
 
@@ -148,7 +148,7 @@ static const char STATUS_FRAGMENT[] PROGMEM = R"rawliteral(
     <div class="status-bar-container">
       <div id="maxAllocBar" class="fill"></div>
     </div>
-    <div class="status-label">Max Alloc</div>
+    <div class="status-label">Max Alloc [k]</div>
     <div id="maxAllocVal" class="status-value">0</div>
   </div>
 
@@ -156,7 +156,7 @@ static const char STATUS_FRAGMENT[] PROGMEM = R"rawliteral(
     <div class="status-bar-container temp">
       <div id="tempBar" class="fill"></div>
     </div>
-    <div class="status-label">Temp °C</div>
+    <div class="status-label">Temp [°C]</div>
     <div id="tempVal" class="status-value">0</div>
   </div>
 </div>

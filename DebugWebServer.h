@@ -37,9 +37,10 @@ private:
     WebServer server;
     static constexpr size_t MAX_LINES = 50;
     std::vector<String> logs;
+    bool nextNewLine = false;
 
     void addLog(const String& msg, bool newLine) {
-        if (newLine || logs.empty()) {
+        if (nextNewLine || logs.empty()) {
             logs.emplace_back(msg);
         } else {
             logs.back() += msg;
@@ -47,6 +48,7 @@ private:
         if (logs.size() > MAX_LINES) {
             logs.erase(logs.begin());
         }
+        nextNewLine = newLine;
     }
 
     void handleRoot() {
@@ -55,7 +57,7 @@ private:
           "<title>Debug Log</title></head><body>"
           "<h1>Debug Log</h1><pre>";
         for (auto &line : logs) {
-            html += line + "\n";
+            html += line + "\n\n";
         }
         html += "</pre></body></html>";
         server.send(200, "text/html", html);
