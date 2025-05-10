@@ -3,6 +3,7 @@
 #include <WebServer.h>
 #include <ESPmDNS.h>
 #include "LoggingBase.h"
+#include <TimeProviderBase.h>
 
 class DebugWebServer : public LoggingBase {
 public:
@@ -48,8 +49,11 @@ private:
     std::vector<String> logs;
     bool nextNewLine = false;
 
-    void addLog(const String& msg, bool newLine) {
+    void addLog(String msg, bool newLine) {
         if (nextNewLine || logs.empty()) {
+            if(gTimeProvider) {
+                msg = gTimeProvider->getFormattedTime() + ": " + msg;
+            }
             logs.emplace_back(msg);
         } else {
             logs.back() += msg;
