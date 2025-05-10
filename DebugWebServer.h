@@ -1,17 +1,23 @@
 #pragma once
 #include <WiFi.h>
 #include <WebServer.h>
+#include <ESPmDNS.h>
 #include "LoggingBase.h"
 
 class DebugWebServer : public LoggingBase {
 public:
     // ctor: HTTP port (usually 80)
-    DebugWebServer(uint16_t port = 80)
-      : server(port)
+    DebugWebServer(String hostname="debugwebserver", uint16_t port = 80)
+      : server(port), hostName(hostname)
     {}
 
     // start the server (call after Wi-Fi is connected)
     void begin() {
+        if (!MDNS.begin(hostName)) {  // Set a hostname as desired
+            gLogger->println("Error setting up MDNS responder!");
+        } else {
+          gLogger->println("MDNS responder started. Access at "+hostName+".local");
+        }
         server.on("/",    [this]() { handleRoot(); });
         server.on("/log", [this]() { handleLog();  });
         server.begin();
@@ -37,6 +43,7 @@ public:
 
 private:
     WebServer server;
+    String hostName;
     static constexpr size_t MAX_LINES = 50;
     std::vector<String> logs;
     bool nextNewLine = false;
