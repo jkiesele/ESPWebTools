@@ -4,11 +4,6 @@
 
 WebLog webLog; //global instance
 
-void WebLog::begin(){
-    logMessages.clear();
-    logTimestamps.clear();
-}
-
 void WebLog::addToLog(String message, bool newTimeStamp){
     if(!turnedOn){
         return;
@@ -34,6 +29,7 @@ void WebLog::addToLog(String message, bool newTimeStamp){
     }
     logMessages.push_back(message);
     logTimestamps.push_back(timestamp);
+    
     if(mirrorToSerial){
         Serial.println(message);
     }

@@ -23,8 +23,8 @@ String WebStatus::getSystemStatus() {
 //----------------------------------------------------------------------------
 String WebStatus::createLogText() {
   String txt;
-  auto& msgs = webLog.getLogMessages();
-  auto& ts   = webLog.getLogTimestamps();
+  auto msgs = webLog.getLogMessages();
+  auto ts   = webLog.getLogTimestamps();
   for (size_t i = 0; i < msgs.size(); ++i) {
     txt += "<li>"
         + TimeManager::formattedDateAndTime(ts[i])

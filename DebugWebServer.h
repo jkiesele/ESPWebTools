@@ -28,9 +28,11 @@ public:
     // LoggingBase API
     void print(const String& msg) override {
         addLog(msg, /*newLine=*/false);
+        Serial.print(msg);//mirror to serial
     }
     void println(const String& msg) override {
         addLog(msg, /*newLine=*/true);
+        Serial.println(msg);//mirror to serial
     }
 
 private:
