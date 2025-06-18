@@ -129,13 +129,15 @@ public:
         srv.on(postPath.c_str(), HTTP_POST, [this, &srv](){
             if (!(srv.hasArg("pw") &&
                   srv.arg("pw") == kSettingsPassword)) {
-                gLogger->println("Settings" + String(urlPath)+ "update failed: wrong password");
+                gLogger->println("Settings: " + String(urlPath)+ "update failed: wrong password");
                 srv.send(401, "text/html", "<h3>Wrong password</h3>");
                 return;
             }
             handlePost(srv);
             save();
-            srv.send(200, "text/html", "<h3>Settings updated</h3>");
+            gLogger->println("Settings: " + String(urlPath) + " updated");
+            srv.sendHeader("Location", "/");  
+            srv.send(303);   
         });
     }
 
@@ -162,7 +164,7 @@ public:
         }
 
         html += "Password: <input type='password' name='pw'><br><br>\n";
-        html += "<input type='submit' value='Save'></form>\n";
+        html += "<input type='submit' value='Save'></form>\n<br><br>\n";
         return html;
     }
 
