@@ -20,6 +20,9 @@ private:
 
 public:
     SMTPSender(const char* fromName, const char* smtpUser, const char* smtpPass);
+    void setSenderName(const char* name) {
+        fromName = String(name);
+    }
     void begin();
     bool sendEmail(const char* recipient, const char* subject, const char* message);
     bool sendEmail(const char* recipient, const char* subject, const String& message);
