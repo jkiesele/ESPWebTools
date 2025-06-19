@@ -25,6 +25,7 @@ struct SettingBase {
     const char* key;      // HTML name= / NVS key
     const char* label;    // human text
     float       step;     // HTML step (ignored for bool)
+    unsigned int precision = 2;   // HTML precision (ignored for bool)
 
     SettingBase(): valueType(TYPE_FLOAT), key(nullptr), label(nullptr), step(0.01f) {}
     virtual ~SettingBase() {}
@@ -33,6 +34,18 @@ struct SettingBase {
     virtual String toString()                      const = 0;
     virtual void   load(Preferences&)                    = 0;
     virtual void   save(Preferences&)              const = 0;
+
+    void setPrecisionFromStep(float step) {
+        const float eps = 1e-6f;  // tolerance for float rounding
+        float x = step;
+        unsigned int prec = 0;
+        // loop up to, say, 9 decimal places
+        while (prec < 9 && fabsf(x - roundf(x)) > eps) {
+            x *= 10.0f;
+            prec++;
+        }
+        precision = prec;
+    }
 };
 
 /*------------------------------------------------------------*/
@@ -49,7 +62,7 @@ public:
             const char* lbl,
             T defaultVal,
             float st = 0.01f)
-        : value(defaultVal)
+        : SettingBase(),  value(defaultVal)
     {
         key   = k;
         label = lbl;
@@ -58,6 +71,8 @@ public:
         if      (std::is_same<T,bool>::value)     valueType = TYPE_BOOL;
         else if (std::is_integral<T>::value)      valueType = TYPE_INT;
         else                                      valueType = TYPE_FLOAT;
+
+        setPrecisionFromStep(step);
 
         owner.registerSetting(this);  // now public, so OK
     }
@@ -82,8 +97,10 @@ public:
     {
         if (valueType == TYPE_BOOL)
             return value ? "1" : "0";
+        else if(valueType == TYPE_FLOAT)
+            return String(static_cast<float>(value), precision);
         else
-            return String(value);
+            return String(value);  // int or uint
     }
 
     void load(Preferences& p) override
