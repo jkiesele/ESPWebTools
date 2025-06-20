@@ -159,13 +159,12 @@ public:
     }
 
     /* public so you can embed it in your own pages */
-    String generateHTML() const
-    {
+    String generateHTML() const {
         String html;
         html.reserve(1024);
         html  = "<form method='POST' action='";
         html += String(urlPath) + "/update'>\n";
-
+    
         for (auto* s : registry) {
             html += String(s->label) + ": ";
             if (s->valueType == SettingBase::TYPE_BOOL) {
@@ -174,14 +173,14 @@ public:
                         "' value='1' " + (b->value ? "checked " : "") +
                         "><br>\n";
             } else {
-                html += "<input type='number' name='" + String(s->key) +
-                        "' step='" + String(s->step) + "' value='" +
-                        s->toString() + "'><br>\n";
+                html += "<input type='text' inputmode='decimal' name='" +
+                        String(s->key) + "' value='" + s->toString() +
+                        "'><br>\n";
             }
         }
-
+    
         html += "Password: <input type='password' name='pw'><br><br>\n";
-        html += "<input type='submit' value='Save'></form>\n<br><br>\n";
+        html += "<input type='submit' value='Save'></form>\n";
         return html;
     }
 
