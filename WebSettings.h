@@ -21,7 +21,12 @@
 /* 2.  Abstract base for every setting                        */
 /*------------------------------------------------------------*/
 struct SettingBase {
-    enum ValueType { TYPE_FLOAT, TYPE_INT, TYPE_BOOL } valueType;
+    enum ValueType {
+        TYPE_FLOAT,
+        TYPE_INT,
+        TYPE_BOOL,
+        TYPE_STRING         
+    } valueType;
     const char* key;      // HTML name= / NVS key
     const char* label;    // human text
     float       step;     // HTML step (ignored for bool)
@@ -48,9 +53,6 @@ struct SettingBase {
     }
 };
 
-/*------------------------------------------------------------*/
-/* 3.  Typed wrapper (variable + meta-data)                   */
-/*------------------------------------------------------------*/
 template<typename T>
 class Setting : public SettingBase {
 public:
@@ -62,58 +64,86 @@ public:
             const char* lbl,
             T defaultVal,
             float st = 0.01f)
-        : SettingBase(),  value(defaultVal)
+        : value(defaultVal)
     {
         key   = k;
         label = lbl;
         step  = st;
-        // set the runtime tag:
-        if      (std::is_same<T,bool>::value)     valueType = TYPE_BOOL;
-        else if (std::is_integral<T>::value)      valueType = TYPE_INT;
-        else                                      valueType = TYPE_FLOAT;
+
+        if      (std::is_same<T,bool>::value) valueType = TYPE_BOOL;
+        else if (std::is_integral<T>::value)  valueType = TYPE_INT;
+        else                                  valueType = TYPE_FLOAT;
 
         setPrecisionFromStep(step);
-
-        owner.registerSetting(this);  // now public, so OK
+        owner.registerSetting(this);
     }
 
-    // implicit cast → plain-variable ergonomics
+    /* implicit cast */
     operator T() const      { return value; }
     Setting& operator=(T v) { value = v; return *this; }
 
-    /* conversions */
-    void fromString(const String& raw) override
-    {
-        if (valueType == TYPE_BOOL) {
-            value = (raw == "1" || raw == "true" || raw == "on");
-        } else if (valueType == TYPE_INT) {
-            value = static_cast<T>(raw.toInt());
-        } else {
-            value = static_cast<T>(raw.toFloat());
-        }
+    /* conversions --------------------------------------------------*/
+    void fromString(const String& raw) override {
+        if      (valueType == TYPE_BOOL) value = (raw == "1" || raw == "true" || raw == "on");
+        else if (valueType == TYPE_INT)  value = static_cast<T>(raw.toInt());
+        else                             value = static_cast<T>(raw.toFloat());
     }
 
-    String toString() const override
-    {
-        if (valueType == TYPE_BOOL)
-            return value ? "1" : "0";
-        else if(valueType == TYPE_FLOAT)
-            return String(static_cast<float>(value), precision);
-        else
-            return String(value);  // int or uint
+    String toString() const override {
+        if      (valueType == TYPE_BOOL)  return value ? "1" : "0";
+        else if (valueType == TYPE_FLOAT) return String(static_cast<float>(value), precision);
+        else                              return String(value);          // int
     }
 
-    void load(Preferences& p) override
-    {
-        if      (valueType == TYPE_BOOL) p.getBool (key, value);
+    void load(Preferences& p) override {
+        if      (valueType == TYPE_BOOL) value = p.getBool(key, value);
         else if (valueType == TYPE_INT)  value = static_cast<T>(p.getInt(key, (int)value));
-        else                            value = static_cast<T>(p.getFloat(key, value));
+        else                             value = static_cast<T>(p.getFloat(key, value));
     }
-    void save(Preferences& p) const override
-    {
+
+    void save(Preferences& p) const override {
         if      (valueType == TYPE_BOOL) p.putBool (key, value);
         else if (valueType == TYPE_INT)  p.putInt  (key, (int)value);
-        else                            p.putFloat(key, value);
+        else                             p.putFloat(key, value);
+    }
+};
+
+/*------------------------------------------------------------*/
+/* 3b. Full specialization for Arduino String                 */
+/*------------------------------------------------------------*/
+template<>
+class Setting<String> : public SettingBase {
+public:
+    String value;
+
+    template<class Block>
+    Setting(Block& owner,
+            const char* k,
+            const char* lbl,
+            const String& defaultVal = String(),
+            float /*st*/ = 1.0f)
+        : value(defaultVal)
+    {
+        key        = k;
+        label      = lbl;
+        step       = 1.0f;          // not used
+        precision  = 0;
+        valueType  = TYPE_STRING;
+        owner.registerSetting(this);
+    }
+
+    operator String() const        { return value; }
+    Setting& operator=(const String& v) { value = v; return *this; }
+
+    /* conversions --------------------------------------------------*/
+    void fromString(const String& raw) override { value = raw; }
+    String toString() const override            { return value; }
+
+    void load(Preferences& p) override {
+        value = p.getString(key, value);
+    }
+    void save(Preferences& p) const override {
+        p.putString(key, value);
     }
 };
 
@@ -172,6 +202,9 @@ public:
                 html += "<input type='checkbox' name='" + String(s->key) +
                         "' value='1' " + (b->value ? "checked " : "") +
                         "><br>\n";
+            } else if (s->valueType == SettingBase::TYPE_STRING) {          // NEW
+                html += "<input type='text' name='" + String(s->key) +
+                        "' value='" + s->toString() + "'><br>\n";
             } else {
                 html += "<input type='text' inputmode='decimal' name='" +
                         String(s->key) + "' value='" + s->toString() +

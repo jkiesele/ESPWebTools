@@ -115,11 +115,15 @@ class WebBarDisplay : public WebDisplayBase {
 public:
     WebBarDisplay(const String &id,
                   uint32_t      updateIntervalSecs,
-                  const T      &maxVal = 100)
-        : WebDisplayBase(id, updateIntervalSecs), value_(), maxVal_(maxVal) {}
+                  const T      &maxVal = 100,
+                  const String unit = "%")
+        : WebDisplayBase(id, updateIntervalSecs), value_(), maxVal_(maxVal), unit_(unit) {}
 
     /* push a new percentage (0‒100) from firmware code */
     void update(const T &v) { value_ = v; }
+    void setMaxVal(const T &maxVal) {
+        maxVal_ = maxVal;
+    }
 
     // -------------------------- WebDisplayBase overrides -----------------------
     String routeText() const override {
@@ -138,32 +142,37 @@ public:
         String html;
         html.reserve(400);
 
-        // --- static HTML ------------------------------------------------------
+        // ---------- static HTML ---------------------------------------------
+        const float pctInit = (maxVal_ > 0) ? (value_ * 100.0f / maxVal_) : 0;
+
         html += "<div id=\""; html += id(); html += "_container\" "
                 "style=\"position:relative;width:100%;height:24px;"
                 "background:#ddd;border-radius:4px;overflow:hidden;\">\n";
 
         html += "  <div id=\""; html += id(); html += "_bar\" "
                 "style=\"height:100%;width:";
-        html += String(value_);
+        html += String(pctInit);
         html += "%;background:#4caf50;color:#fff;text-align:center;"
                 "line-height:24px;font-size:12px;\">";
         html += String(value_);
-        html += "%</div></div>\n";
+        html += unit_;
+        html += "</div></div>\n";
 
-        // --- polling script ---------------------------------------------------
+        // ---------- polling script ------------------------------------------
         html += "<script>\n"
                 "(function(){\n"
                 " const bar=document.getElementById('";  html += id(); html += "_bar');\n"
+                " const max=";  html += String(maxVal_); html += ";\n"
+                " const unit='"; html += unit_;         html += "';\n"
                 " async function poll(){\n"
                 "   try{\n"
                 "     const r=await fetch('"; html += handle(); html += "');\n"
                 "     if(r.ok){\n"
                 "       const d=await r.json();\n"
                 "       const v=parseFloat(d.value);\n"
-                "       const pct=Math.min(100,Math.max(0,v));\n"
+                "       const pct=Math.min(100, Math.max(0,(v/max)*100));\n"
                 "       bar.style.width=pct+'%';\n"
-                "       bar.textContent=Math.round(pct)+'%';\n"
+                "       bar.textContent=v.toFixed(1)+unit;\n"
                 "     }\n"
                 "   }catch(e){}\n"
                 " }\n"
@@ -176,6 +185,7 @@ public:
     }
 
 private:
+    String unit_; // e.g. "%", "L", etc.
     T value_;
     T maxVal_;
 };
