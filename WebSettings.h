@@ -163,6 +163,8 @@ public:
     /* expose this so Setting<T> can call it */
     void registerSetting(SettingBase* s) { registry.push_back(s); }
 
+    virtual bool sanityCheck() {return true;} // override in derived classes if needed, can change values
+
     /* web integration */
     void setupRoutes(WebServer& srv)
     {
@@ -230,6 +232,10 @@ private:
                 // unchecked checkbox → false
                 static_cast<Setting<bool>*>(s)->value = false;
             }
+        }
+        if (!sanityCheck()) {
+            gLogger->println("Settings: " + String(urlPath) + " sanity check failed (values might have been changed)");
+            return;
         }
     }
 
