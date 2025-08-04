@@ -3,8 +3,8 @@
 #include <WebDisplay.h>
 #include <WebSettings.h>
 
-#ifndef WEBINTERFACE_H
-#define WEBINTERFACE_H
+#ifndef BASICWEBINTERFACE_H
+#define BASICWEBINTERFACE_H
 
 class BasicWebInterface {
 public:

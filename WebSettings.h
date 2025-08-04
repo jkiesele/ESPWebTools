@@ -155,6 +155,10 @@ public:
     SettingsBlockBase(const char* nvs, const char* url)
       : nvsNS(nvs), urlPath(url) {}
 
+    //overload for arduino string
+    SettingsBlockBase(const String& nvs, const String& url)
+      : nvsNS(nvs.c_str()), urlPath(url.c_str()) {}
+
     /* lifecycle */
     void begin() { prefs.begin(nvsNS); load(); }
     void load()  { for (auto* s : registry) s->load(prefs); }
