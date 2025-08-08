@@ -61,6 +61,25 @@ public:
         xSemaphoreGive(accessMutex);
         return cp;
     }
+    uint8_t getLogLenth(){
+        xSemaphoreTake(accessMutex, portMAX_DELAY);
+        uint8_t sz = logMessages.size();
+        xSemaphoreGive(accessMutex);
+        return sz;
+    }
+    
+    std::vector<std::pair<String, String>> getLogEntries() {
+        xSemaphoreTake(accessMutex, portMAX_DELAY);
+        std::vector<std::pair<String, String>> entries;
+        for (size_t i = 0; i < logMessages.size(); ++i) {
+            entries.emplace_back(String(logTimestamps[i]), logMessages[i]);
+        }
+        xSemaphoreGive(accessMutex);
+        return entries;
+    }
+    
+    
+
     uint8_t getLogSize() const {
         xSemaphoreTake(accessMutex, portMAX_DELAY);
         uint8_t sz = logSize;
