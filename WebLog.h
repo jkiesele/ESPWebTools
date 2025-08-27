@@ -67,12 +67,12 @@ public:
         xSemaphoreGive(accessMutex);
         return sz;
     }
-    
-    std::vector<std::pair<String, String>> getLogEntries() {
+
+    std::vector<std::pair<uint32_t, String>> getLogEntries() {
         xSemaphoreTake(accessMutex, portMAX_DELAY);
-        std::vector<std::pair<String, String>> entries;
+        std::vector<std::pair<uint32_t, String>> entries;
         for (size_t i = 0; i < logMessages.size(); ++i) {
-            entries.emplace_back(String(logTimestamps[i]), logMessages[i]);
+            entries.emplace_back(logTimestamps[i], logMessages[i]);
         }
         xSemaphoreGive(accessMutex);
         return entries;
