@@ -8,15 +8,15 @@
 #include <WebItem.h>       // provides virtual access to setupRoutes and generateHTML (BasicWebInterface)
 
 // Provide a password validator hook so you can read from NVS/SettingsBlockBase.
-using OtaPasswordValidator = std::function<bool(const String& pw)>;
+using OTAPasswordValidator = std::function<bool(const String& pw)>;
 
-class WebOtaUpload : public WebItem {
+class WebOTAUpload : public WebItem {
 public:
     // Fixed password (simple)
-    WebOtaUpload(const String& password, const String& route = "/otaupdate");
+    WebOTAUpload(const String& password, const String& route = "/otaupdate");
 
     // Dynamic validator (e.g. read from settings)
-    WebOtaUpload(OtaPasswordValidator validator, const String& route = "/otaupdate");
+    WebOTAUpload(OTAPasswordValidator validator, const String& route = "/otaupdate");
 
     // WebItem API
     void setupRoutes(WebServer& server) override;
@@ -31,7 +31,7 @@ public:
 private:
     WebServer* server_ = nullptr;
     String route_;
-    OtaPasswordValidator validator_;
+    OTAPasswordValidator validator_;
     bool uploadStarted_ = false;
 
     String buildPage_() const;

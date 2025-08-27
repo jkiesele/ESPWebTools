@@ -1,16 +1,16 @@
 #include "WebOTAUpload.h"
 
-WebOtaUpload::WebOtaUpload(const String& password, const String& route)
+WebOTAUpload::WebOTAUpload(const String& password, const String& route)
     : route_(route),
       validator_([password](const String& pw){ return pw == password; })
 {}
 
-WebOtaUpload::WebOtaUpload(OtaPasswordValidator validator, const String& route)
+WebOTAUpload::WebOTAUpload(OTAPasswordValidator validator, const String& route)
     : route_(route),
       validator_(std::move(validator))
 {}
 
-void WebOtaUpload::setupRoutes(WebServer& server) {
+void WebOTAUpload::setupRoutes(WebServer& server) {
     server_ = &server;
 
     // GET: show upload page
@@ -121,7 +121,7 @@ void WebOtaUpload::setupRoutes(WebServer& server) {
     });
 }
 
-String WebOtaUpload::generateHTML() const {
+String WebOTAUpload::generateHTML() const {
     String s;
     s.reserve(256);
     s  = F("<div class='card'><h3>Firmware Update</h3>"
@@ -132,13 +132,13 @@ String WebOtaUpload::generateHTML() const {
     return s;
 }
 
-void WebOtaUpload::markAppValid() {
+void WebOTAUpload::markAppValid() {
     esp_err_t err = esp_ota_mark_app_valid_cancel_rollback();
     gLogger->println(err == ESP_OK ? F("[OTA] Marked app valid (cancelled rollback).")
                                    : F("[OTA] Failed to mark app valid!"));
 }
 
-String WebOtaUpload::buildPage_() const {
+String WebOTAUpload::buildPage_() const {
     // Minimalistic, no JS required; password field is mandatory.
     String s;
     s.reserve(1200);
