@@ -3,11 +3,14 @@
 #include <WebServer.h>
 #include <Update.h>
 #include <LoggingBase.h>   // uses global gLogger
+#include <esp_ota_ops.h>
+#include <WebItem.h> //provides virtual access to setupRoutes and generateHTML (can be added to BasicWebInterface)
 
 // Provide a password validator hook so you can read from NVS/SettingsBlockBase.
 using OtaPasswordValidator = std::function<bool(const String& pw)>;
 
-class WebOtaUpload {
+
+class WebOtaUpload : public WebItem {
 public:
     // Fixed password (simple)
     WebOtaUpload(const String& password,
@@ -87,7 +90,7 @@ public:
                         gLogger->println(up.filename);
 
                         if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
-                            Update.printError(*gLogger);
+                            gLogger->println(Update.errorString());
                             break;
                         }
                         uploadStarted_ = true;
@@ -98,7 +101,7 @@ public:
                         if (!uploadStarted_) break; // discard if not authorized / not started
                         size_t w = Update.write(up.buf, up.currentSize);
                         if (w != up.currentSize) {
-                            Update.printError(*gLogger);
+                            gLogger->println(Update.errorString());
                         }
                         break;
                     }
@@ -109,7 +112,7 @@ public:
                             gLogger->print(F("[OTA] Written bytes: "));
                             gLogger->println(String(up.totalSize));
                         } else {
-                            Update.printError(*gLogger);
+                            gLogger->println(Update.errorString());
                         }
                         break;
                     }
@@ -147,6 +150,13 @@ public:
     }
 
     const String& route() const { return route_; }
+
+    //call this after a verifying a successful update in begin() to prevent rollback
+    void markAppValid() {
+        esp_err_t err = esp_ota_mark_app_valid_cancel_rollback();
+        gLogger->println(err == ESP_OK ? F("[OTA] Marked app valid (cancelled rollback).")
+                                       : F("[OTA] Failed to mark app valid!"));
+    }
 
 private:
     WebServer* server_ = nullptr;

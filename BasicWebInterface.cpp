@@ -33,6 +33,10 @@ void BasicWebInterface::setupRoutes() {
     for(const auto& settingsDisplay : settingsDisplays_) {
         settingsDisplay.second->setupRoutes(server);
     }
+    //web items
+    for(auto* item : webItems_) {
+        item->setupRoutes(server);
+    }
 
     // System status route (return JSON)
     server.on("/status", HTTP_GET, [this]() {
@@ -86,12 +90,21 @@ String BasicWebInterface::generateSettingsHtml() const{
     return html;
 
 }
+String BasicWebInterface::generateWebItemsHtml() const{
+    String html;
+    html.reserve(1024);
+    for(auto* item : webItems_) {
+        html += item->generateHTML();
+    }
+    return html;
+}
 
 String BasicWebInterface::generateHTML() const {
     String html = generateHeaderAndStatusHtml();
 
     html += generateDisplayHtml();
     html += generateSettingsHtml();
+    html += generateWebItemsHtml();
     html += generateFooterHtml();
 
     return html;
