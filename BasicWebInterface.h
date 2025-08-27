@@ -33,6 +33,8 @@ public:
         settingsDisplays_.emplace_back(descText, settings);
     }
 
+    WebServer& getServer() { return server; }
+    const WebServer& getServer() const { return server; }
 
 private:
     WebServer server;
