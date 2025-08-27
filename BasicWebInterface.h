@@ -6,11 +6,12 @@
 #ifndef BASICWEBINTERFACE_H
 #define BASICWEBINTERFACE_H
 
+
 class BasicWebInterface {
 public:
 
     BasicWebInterface(){}
-    void begin();
+    void begin(bool authEnabled = true, bool postOnlyLockdown = true);
     void loop(){
         server.handleClient();
     }

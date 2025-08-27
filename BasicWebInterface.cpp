@@ -2,8 +2,9 @@
 #include <SystemID.h>
 #include <ESPmDNS.h>
 #include "WebStatus.h"
+#include "WebAuthPlugin.h"
 
-void BasicWebInterface::begin() {
+void BasicWebInterface::begin(bool authEnabled, bool postOnlyLockdown) {
 
     if (!MDNS.begin(systemID.systemName())) {  // Replace with your desired hostname
         Serial.println("Error setting up MDNS responder!");
@@ -11,6 +12,12 @@ void BasicWebInterface::begin() {
         Serial.println("mDNS responder started. Access at http://"+systemID.systemName()+ ".local");
     }
     server.begin();
+    auto& auth = WebAuthPlugin::instance(); //singleton
+    auth.setEnabled(authEnabled);               // or false to turn off globally
+    auth.setPostOnlyLockdown(postOnlyLockdown);      // true = only POSTs require login; false = lock all
+    auth.setIdleTimeoutMs(24 * 90 * 60 * 1000);//can be long for local network
+    auth.install(server);
+    //setup other routes
     setupRoutes();
 }
 void BasicWebInterface::setupRoutes() {

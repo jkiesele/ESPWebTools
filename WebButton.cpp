@@ -1,5 +1,7 @@
 
 #include "WebButton.h"
+#include "WebAuthPlugin.h" // for auth check
+#include "LoggingBase.h"
 
 
 String WebButton::createHtmlFragment() const
@@ -32,9 +34,14 @@ String WebButton::routeText() const
 {
     const uint32_t now = millis();
     if (onClick_ && now - lastClick_ >= cooldownMs_) {
-        onClick_();                 // *****  user action  *****
-        lastClick_ = now;
-        ++clickCounter_;
+        if (WebAuthPlugin::instance().require()) {
+            onClick_();                 // *****  user action  *****
+            lastClick_ = now;
+            ++clickCounter_;
+        }
+        else{
+            gLogger->println("WebButton: " + id() + " click blocked: not authenticated");
+        }
     }
     return "{\"id\":\"" + id() +
            "\",\"clicks\":" + String(clickCounter_) + "}";

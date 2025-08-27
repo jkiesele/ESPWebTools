@@ -15,6 +15,7 @@
 #include <vector>
 #include <type_traits>
 #include <LoggingBase.h>
+#include "WebAuthPlugin.h"
 
 
 /*------------------------------------------------------------*/
@@ -180,12 +181,16 @@ public:
         /* POST -> check pw, update, save */
         String postPath = String(urlPath) + "/update";
         srv.on(postPath.c_str(), HTTP_POST, [this, &srv](){
-            if (!(srv.hasArg("pw") &&
-                  srv.arg("pw") == kSettingsPassword)) {
-                gLogger->println("Settings: " + String(urlPath)+ "update failed: wrong password");
-                srv.send(401, "text/html", "<h3>Wrong password</h3>");
-                return;
+            if (WebAuthPlugin::instance().isActive()) {
+                if (!WebAuthPlugin::instance().require()) return;   // uses postOnlyLockdown internally
+            } else {
+                if (!(srv.hasArg("pw") && srv.arg("pw") == kSettingsPassword)) {
+                    gLogger->println("Settings: " + String(urlPath) + " update failed: wrong password");
+                    srv.send(401, "text/html", "<h3>Wrong password</h3>");
+                    return;
+                }
             }
+
             handlePost(srv);
             save();
             gLogger->println("Settings: " + String(urlPath) + " updated");
@@ -217,8 +222,9 @@ public:
                         "'><br>\n";
             }
         }
-    
-        html += "Password: <input type='password' name='pw'><br><br>\n";
+        if (!WebAuthPlugin::instance().isActive()) {
+            html += "Password: <input type='password' name='pw'><br><br>\n";
+        }
         html += "<input type='submit' value='Save'></form>\n";
         return html;
     }
