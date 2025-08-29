@@ -59,7 +59,8 @@ void WebAuthPlugin::install(WebServer& srv){
       String next = server_->hasArg("next") ? server_->arg("next") : "/";
       if (next.length() == 0 || next[0] != '/') next = "/";
       server_->sendHeader("Cache-Control", "no-store");
-      sendRedirect_(*server_, next); return;
+      // the next logic is not working yet, so redirect to root for now - maybe fix in future
+      sendRedirect_(*server_, "/"); return;
     }
     server_->send(200, "text/html", htmlLogin_());
   });
@@ -76,7 +77,8 @@ void WebAuthPlugin::install(WebServer& srv){
       String tok = auth_.createSession();
       server_->sendHeader("Set-Cookie",
                         String(kCookieName_)+"="+tok+"; HttpOnly; SameSite=Lax; Path=/");
-      sendRedirect_(*server_, next);
+      // the next logic is not working yet, so redirect to root for now - maybe fix in future
+      sendRedirect_(*server_, "/");
     } else {
       delay(400);
       server_->sendHeader("Cache-Control", "no-store");

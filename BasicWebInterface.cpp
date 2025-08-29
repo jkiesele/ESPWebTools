@@ -25,9 +25,10 @@ void BasicWebInterface::setupRoutes() {
         server.send(200, "text/html", generateHTML());
     });
 
-    for (const auto& display : displays_) {
-        server.on(display.second->handle(), HTTP_GET, [display,this]() {
-           server.send(200, "application/json", display.second->routeText());
+    for (auto& kv : displays_) {
+        auto* disp = kv.second;
+        server.on(disp->handle(), HTTP_GET, [this, disp]() {
+            server.send(200, "application/json", disp->routeText());
         });
     }
     for(const auto& settingsDisplay : settingsDisplays_) {
