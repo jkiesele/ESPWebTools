@@ -106,6 +106,93 @@ private:
     T value_;
 };
 
+// ---- Add this next to your helpers -----------------------------------------
+template <>
+struct _JsonHelper<bool> {
+    static String encode(const bool &v) { return v ? F("true") : F("false"); }
+    static String dom   (const bool &v) { return v ? F("true") : F("false"); } // not used by the bool UI
+};
+
+// ---- WebDisplay<bool> specialization ---------------------------------------
+template <>
+class WebDisplay<bool> : public WebDisplayBase {
+public:
+    WebDisplay(const String &id, uint32_t updateIntervalSecs, const bool &initial = false)
+    : WebDisplayBase(id, updateIntervalSecs), value_(initial) {}
+
+    void update(const bool &v) { value_ = v; }
+
+    String routeText() const override {
+        String json;
+        json.reserve(id_.length() + 32);
+        json += F("{\"id\":\"");
+        json += id();
+        json += F("\",\"value\":");
+        json += _JsonHelper<bool>::encode(value_);
+        json += '}';
+        return json;
+    }
+
+    String createHtmlFragment() const override {
+        String html;
+        html.reserve(700);
+
+        // Namespacing prefix to isolate styles per instance
+        const String p = "wd-" + id();
+
+        // Initial classes
+        const char* redCls   = value_ ? "off"      : "on red";
+        const char* greenCls = value_ ? "on green" : "off";
+
+        // Inline, namespaced CSS (safe to repeat; unique per id)
+        html += "<style>"
+                "." + p + " .led{width:12px;height:12px;border-radius:50%;display:inline-block;"
+                          "margin:0 4px 0 0;background:#bfbfbf;vertical-align:middle;"
+                          "box-shadow:inset 0 0 2px rgba(0,0,0,.5)}"
+                "." + p + " .on.red{background:#d63c3c}"
+                "." + p + " .on.green{background:#2bb24c}"
+                "." + p + " .off{background:#bfbfbf}"
+                "." + p + " .wrap{display:inline-flex;align-items:center;gap:6px}"
+                "." + p + " .lbl{font:12px/1.2 sans-serif;opacity:.85}"
+                "</style>";
+
+        // HTML
+        html += "<div id=\""; html += id(); html += "_wrap\" class=\"";
+        html += p; html += " wrap\" role=\"group\" aria-label=\""; html += id(); html += "\">";
+        html +=   "<span id=\""; html += id(); html += "_r\" class=\"led "; html += redCls;   html += "\" aria-label=\"red\"></span>";
+        html +=   "<span id=\""; html += id(); html += "_g\" class=\"led "; html += greenCls; html += "\" aria-label=\"green\"></span>";
+        html +=   "<span class=\"lbl\">"; html += id(); html += "</span>";
+        html += "</div>\n";
+
+        // Polling script: fetch JSON {value: true|false} and toggle classes
+        html += "<script>\n"
+                "(function(){\n"
+                "  const id='" + id() + "';\n"
+                "  const r=document.getElementById(id+'_r');\n"
+                "  const g=document.getElementById(id+'_g');\n"
+                "  function apply(v){\n"
+                "    if(v){ r.className='led off'; g.className='led on green'; }\n"
+                "    else { r.className='led on red'; g.className='led off'; }\n"
+                "  }\n"
+                "  async function poll(){\n"
+                "    try{\n"
+                "      const resp=await fetch('" + handle() + "');\n"
+                "      if(resp.ok){ const d=await resp.json(); apply(!!d.value); }\n"
+                "    }catch(e){}\n"
+                "  }\n"
+                "  apply(" + String(value_ ? "true" : "false") + ");\n"
+                "  poll();\n"
+                "  setInterval(poll," + String(updateInterval_ * 1000) + ");\n"
+                "})();\n"
+                "</script>\n";
+
+        return html;
+    }
+
+private:
+    bool value_{false};
+};
+
 
 // -----------------------------------------------------------------------------
 //  Progress-bar style display (0‒100 %)

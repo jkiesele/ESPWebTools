@@ -38,6 +38,27 @@ public:
         webItems_.push_back(item);
     }
 
+    void setDescText(const String& text, WebDisplayBase * which) {
+        // find and set
+        for (auto& p : displays_) {
+            if (p.second == which) {
+                p.first = text;
+                return;
+            }
+        }
+    }
+
+    // overload for setting desc
+    void setDescText(const String& text, SettingsBlockBase * which) {
+        // find and set
+        for (auto& p : settingsDisplays_) {
+            if (p.second == which) {
+                p.first = text;
+                return;
+            }
+        }
+    }
+
     WebServer& getServer() { return server; }
     const WebServer& getServer() const { return server; }
 
