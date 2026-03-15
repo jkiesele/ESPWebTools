@@ -9,6 +9,8 @@ String SystemID::systemName() const {
     return systemName_;
 }
 void SystemID::setSystemName(const String& name) {
+    if(name == systemName_)
+        return; // no change, skip writing to NVS
     systemName_ = name;
     saveToNVS();
 }
