@@ -16,6 +16,8 @@
 #include <type_traits>
 #include <LoggingBase.h>
 #include "WebAuthPlugin.h"
+#include "MACAddress.h" // TCPMessenger dependency here, but header only
+#include <cstdio>
 
 
 /*------------------------------------------------------------*/
@@ -26,7 +28,9 @@ struct SettingBase {
         TYPE_FLOAT,
         TYPE_INT,
         TYPE_BOOL,
-        TYPE_STRING         
+        TYPE_STRING,
+        TYPE_IP,
+        TYPE_MAC
     } valueType;
     const char* key;      // HTML name= / NVS key
     const char* label;    // human text
@@ -127,9 +131,186 @@ public:
       else if (valueType == TYPE_BOOL) value = false; // unchecked checkbox
     }
 };
+/*------------------------------------------------------------*/
+/*------------- Helper functions for IP and MACAddress  ------*/
+/*------------------------------------------------------------*/
+
+inline bool parseIPAddress_(const String& s, IPAddress& out) {
+    unsigned a = 0, b = 0, c = 0, d = 0;
+    if (std::sscanf(s.c_str(), "%u.%u.%u.%u", &a, &b, &c, &d) != 4) {
+        return false;
+    }
+    if (a > 255 || b > 255 || c > 255 || d > 255) {
+        return false;
+    }
+    out = IPAddress(static_cast<uint8_t>(a),
+                    static_cast<uint8_t>(b),
+                    static_cast<uint8_t>(c),
+                    static_cast<uint8_t>(d));
+    return true;
+}
+
+inline String ipAddressToString_(const IPAddress& ip) {
+    return String(ip[0]) + "." + String(ip[1]) + "." +
+           String(ip[2]) + "." + String(ip[3]);
+}
+
+inline bool parseMACAddress_(const String& s, tcpmsg::MACAddress& out) {
+    unsigned b[6] = {0, 0, 0, 0, 0, 0};
+
+    if (std::sscanf(s.c_str(), "%2x:%2x:%2x:%2x:%2x:%2x",
+                    &b[0], &b[1], &b[2], &b[3], &b[4], &b[5]) != 6) {
+        return false;
+    }
+
+    uint8_t raw[6];
+    for (int i = 0; i < 6; ++i) {
+        if (b[i] > 255) return false;
+        raw[i] = static_cast<uint8_t>(b[i]);
+    }
+
+    out.setBytes(raw);
+    return true;
+}
+
+inline String macAddressToString_(const tcpmsg::MACAddress& mac) {
+    const uint8_t* b = mac.bytes();   // or mac.data(), depending on your current class
+    char tmp[18];
+    std::snprintf(tmp, sizeof(tmp),
+                  "%02X:%02X:%02X:%02X:%02X:%02X",
+                  b[0], b[1], b[2], b[3], b[4], b[5]);
+    return String(tmp);
+}
 
 /*------------------------------------------------------------*/
-/* 3b. Full specialization for Arduino String                 */
+/* 3a. Full specialization for IPAddress                      */
+/*------------------------------------------------------------*/
+
+template<>
+class Setting<IPAddress> : public SettingBase {
+public:
+    IPAddress value;
+
+    template<class Block>
+    Setting(Block& owner,
+            const char* k,
+            const char* lbl,
+            const IPAddress& defaultVal = IPAddress(),
+            float /*st*/ = 1.0f)
+        : value(defaultVal)
+    {
+        key       = k;
+        label     = lbl;
+        step      = 1.0f;
+        precision = 0;
+        valueType = TYPE_IP;   // or TYPE_STRING if you do not extend the enum
+        owner.registerSetting(this);
+    }
+
+    operator IPAddress() const { return value; }
+    Setting& operator=(const IPAddress& v) { value = v; return *this; }
+
+    void fromString(const String& raw) override {
+        IPAddress tmp;
+        if (parseIPAddress_(raw, tmp)) {
+            value = tmp;
+        } else {
+            gLogger->println("Settings: invalid IPAddress for key " + String(key) +
+                             ": " + raw);
+        }
+    }
+
+    String toString() const override {
+        return ipAddressToString_(value);
+    }
+
+    void load(Preferences& p) override {
+        const String raw = p.getString(key, toString());
+        fromString(raw);
+    }
+
+    void save(Preferences& p) const override {
+        p.putString(key, toString());
+    }
+
+    void appendHTMLInputs(String& html) const override {
+        html += "<input type='text' name='" + String(key) +
+                "' value='" + toString() + "'>\n";
+    }
+
+    void onPost(WebServer& srv) override {
+        if (srv.hasArg(key)) {
+            fromString(srv.arg(key));
+        }
+    }
+};
+
+/*------------------------------------------------------------*/
+/* 3b. Full specialization for MACAddress                     */
+/*------------------------------------------------------------*/
+
+template<>
+class Setting<tcpmsg::MACAddress> : public SettingBase {
+public:
+    tcpmsg::MACAddress value;
+
+    template<class Block>
+    Setting(Block& owner,
+            const char* k,
+            const char* lbl,
+            const tcpmsg::MACAddress& defaultVal = tcpmsg::MACAddress(),
+            float /*st*/ = 1.0f)
+        : value(defaultVal)
+    {
+        key       = k;
+        label     = lbl;
+        step      = 1.0f;
+        precision = 0;
+        valueType = TYPE_MAC;   // or TYPE_STRING if you do not extend the enum
+        owner.registerSetting(this);
+    }
+
+    operator tcpmsg::MACAddress() const { return value; }
+    Setting& operator=(const tcpmsg::MACAddress& v) { value = v; return *this; }
+
+    void fromString(const String& raw) override {
+        tcpmsg::MACAddress tmp;
+        if (parseMACAddress_(raw, tmp)) {
+            value = tmp;
+        } else {
+            gLogger->println("Settings: invalid MACAddress for key " + String(key) +
+                             ": " + raw);
+        }
+    }
+
+    String toString() const override {
+        return macAddressToString_(value);
+    }
+
+    void load(Preferences& p) override {
+        const String raw = p.getString(key, toString());
+        fromString(raw);
+    }
+
+    void save(Preferences& p) const override {
+        p.putString(key, toString());
+    }
+
+    void appendHTMLInputs(String& html) const override {
+        html += "<input type='text' name='" + String(key) +
+                "' value='" + toString() + "'>\n";
+    }
+
+    void onPost(WebServer& srv) override {
+        if (srv.hasArg(key)) {
+            fromString(srv.arg(key));
+        }
+    }
+};
+
+
+/*------------------------------------------------------------*/
+/* 3c. Full specialization for Arduino String                 */
 /*------------------------------------------------------------*/
 template<>
 class Setting<String> : public SettingBase {
