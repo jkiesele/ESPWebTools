@@ -75,11 +75,12 @@ String BasicWebInterface::generateDisplayHtml() const{
     String html;
     html.reserve(1024);
     for (const auto& display : displays_) {
-        html += "<h2>" + display.first + "</h2>";
+        if(display.first.length() > 0) {
+            html += "<h3>" + display.first + "</h3>";
+        }
         html += display.second->createHtmlFragment();
     }
     return html;
-
 }
 String BasicWebInterface::generateSettingsHtml() const{
     String html;
