@@ -89,6 +89,10 @@ public:
     /* implicit cast */
     operator T() const      { return value; }
     Setting& operator=(T v) { value = v; return *this; }
+    Setting& operator=(const Setting& other) {
+        value = other.value;
+        return *this;
+    }
 
     /* conversions --------------------------------------------------*/
     void fromString(const String& raw) override {
@@ -209,6 +213,10 @@ public:
 
     operator IPAddress() const { return value; }
     Setting& operator=(const IPAddress& v) { value = v; return *this; }
+    Setting& operator=(const Setting<IPAddress>& other) {
+        value = other.value;
+        return *this;
+    }
 
     void fromString(const String& raw) override {
         IPAddress tmp;
@@ -272,6 +280,11 @@ public:
 
     operator tcpmsg::MACAddress() const { return value; }
     Setting& operator=(const tcpmsg::MACAddress& v) { value = v; return *this; }
+    Setting& operator=(const Setting<tcpmsg::MACAddress>& other) {
+        value = other.value;
+        return *this;
+    }
+
 
     void fromString(const String& raw) override {
         tcpmsg::MACAddress tmp;
@@ -335,6 +348,10 @@ public:
 
     operator String() const        { return value; }
     Setting& operator=(const String& v) { value = v; return *this; }
+    Setting& operator=(const Setting<String>& other) {
+        value = other.value;
+        return *this;
+    }
 
     /* conversions --------------------------------------------------*/
     void fromString(const String& raw) override { value = raw; }
