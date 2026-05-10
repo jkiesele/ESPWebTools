@@ -1,7 +1,7 @@
 #include "WebStatus.h"
 #include <WebLog.h>
 #include <TimeManager.h>
-#include <ESP.h>        // ESP.getFreeHeap(), etc.
+#include <ESP.h>
 
 //----------------------------------------------------------------------------
 // JSON status
@@ -10,10 +10,10 @@ String WebStatus::getSystemStatus() {
   char buf[128];
   snprintf(buf, sizeof(buf),
     "{\"heap\":%u,\"maxAlloc\":%u,\"heapTotal\":%u,\"tempC\":%.1f}",
-    ESP.getFreeHeap()/1024,
-    ESP.getMaxAllocHeap()/1024,
-    ESP.getHeapSize()/1024,
-    temperatureRead()   // or however you read temp
+    ESP.getFreeHeap() / 1024,
+    ESP.getMaxAllocHeap() / 1024,
+    ESP.getHeapSize() / 1024,
+    temperatureRead()
   );
   return String(buf);
 }
@@ -25,12 +25,14 @@ String WebStatus::createLogText() {
   String txt;
   auto msgs = webLog.getLogMessages();
   auto ts   = webLog.getLogTimestamps();
+
   for (size_t i = 0; i < msgs.size(); ++i) {
     txt += "<li>"
         + TimeManager::formattedDateAndTime(ts[i])
         + ": " + msgs[i]
         + "</li>\n";
   }
+
   return txt;
 }
 
@@ -39,57 +41,49 @@ String WebStatus::createLogText() {
 //----------------------------------------------------------------------------
 static const char STATUS_FRAGMENT[] PROGMEM = R"rawliteral(
 <style>
+  body {
+    font-family: Arial, sans-serif;
+  }
 
-  body{font-family:Arial,sans-serif;}
-
-  /* add this: */
-   .status-section {
-     display: flex;            /* lay children in a row */
-     justify-content: center;  /* center the group in the page */
-     gap: 30px;                /* space between each wrapper */
-     margin-bottom: 20px;      /* if you want some breathing room below */
-   }
+  .status-section {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
 
   .status-wrapper {
-    display: flex;
-    flex-direction: column;   /* stack children vertically */
-    align-items: center;      /* center them horizontally */
-    margin: 0 15px;
+    width: 260px;
+    max-width: 100%;
+    font-family: sans-serif;
     font-size: 12px;
-  }
-    
-  
-  .status-bar-container {
-    position: relative;      /* allow its child to be absolutely positioned */
-    width: 20px;
-    height: 100px;
-    background: #ddd;
-    border: 1px solid #999;
-    margin-bottom: 10px;
-    /* remove the flex rules here */
-  }
-  
-  .status-bar-container .fill {
-    position: absolute;  /* stick the fill to the container’s bottom edge */
-    bottom: 0;
-    left:   0;
-    width: 100%;
-    background: #3498db;
-    transition: height 0.5s;
-  }
-  
-  /* Temperature bar gets its own color */
-  .status-bar-container.temp .fill {
-    background: #e67e22;
-  }
-  
-  /* Label and value */
-  .status-label,
-  .status-value {
-    text-align: center;
+    margin: 4px 0;
   }
 
-  /* Log window styling */
+  .status-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2px;
+  }
+
+  .status-bar-container {
+    position: relative;
+    width: 100%;
+    height: 16px;
+    background: #ddd;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .status-bar-container .fill {
+    height: 100%;
+    width: 0%;
+    background: #777;
+    transition: width 0.5s, background 0.5s;
+  }
+
   #logContainer {
     background-color: #f9f9f9;
     border: 1px solid #ccc;
@@ -97,81 +91,129 @@ static const char STATUS_FRAGMENT[] PROGMEM = R"rawliteral(
     height: 300px;
     overflow-y: auto;
     white-space: pre-wrap;
+    font-size: 12px;
   }
 </style>
+
 <script>
+  function clamp(v, lo, hi) {
+    return Math.min(hi, Math.max(lo, v));
+  }
+
+  function percentColor(pct) {
+    if (pct >= 60) return '#4caf50';
+    if (pct >= 30) return '#ff9800';
+    return '#f44336';
+  }
+
+  function tempColor(tempC) {
+    if (tempC < 0)  return '#777';
+    if (tempC < 55) return '#4caf50';
+    if (tempC < 70) return '#8bc34a';
+    if (tempC < 85) return '#ff9800';
+    return '#f44336';
+  }
+
+  function setBar(id, pct, color) {
+    const bar = document.getElementById(id);
+    if (!bar) return;
+    bar.style.width = clamp(pct, 0, 100) + '%';
+    bar.style.background = color;
+  }
+
   function updateStatus(statusPath) {
     fetch(statusPath)
-      .then(r=>r.json())
-      .then(d=>{
-        document.getElementById('heapBar').style.height      = (d.heap/d.heapTotal*100)+'%';
-        document.getElementById('maxAllocBar').style.height = (d.maxAlloc/d.heapTotal*100)+'%';
-        let t = ((Math.min(100,Math.max(20,d.tempC)) - 20)/80*100)+'%';
-        document.getElementById('tempBar').style.height     = t;
-        document.getElementById('heapVal').innerText      = d.heap;
-        document.getElementById('maxAllocVal').innerText  = d.maxAlloc;
-        document.getElementById('tempVal').innerText      = d.tempC.toFixed(1);
-      });
+      .then(r => r.json())
+      .then(d => {
+        const heapTotal = Math.max(1, parseFloat(d.heapTotal));
+
+        const heapPct = clamp(parseFloat(d.heap) / heapTotal * 100, 0, 100);
+        const maxAllocPct = clamp(parseFloat(d.maxAlloc) / heapTotal * 100, 0, 100);
+
+        const tempC = parseFloat(d.tempC);
+        const tempPct = clamp((clamp(tempC, 20, 100) - 20) / 80 * 100, 0, 100);
+
+        setBar('heapBar', heapPct, percentColor(heapPct));
+        setBar('maxAllocBar', maxAllocPct, percentColor(maxAllocPct));
+        setBar('tempBar', tempPct, tempColor(tempC));
+
+        document.getElementById('heapVal').innerText =
+          d.heap + ' k / ' + heapPct.toFixed(0) + '%';
+
+        document.getElementById('maxAllocVal').innerText =
+          d.maxAlloc + ' k / ' + maxAllocPct.toFixed(0) + '%';
+
+        document.getElementById('tempVal').innerText =
+          tempC.toFixed(1) + ' C';
+      })
+      .catch(e => {});
   }
+
   function updateLog(logPath) {
     fetch(logPath)
-      .then(r=>r.text())
-      .then(txt=>{
-        let c = document.getElementById('logContainer');
+      .then(r => r.text())
+      .then(txt => {
+        const c = document.getElementById('logContainer');
+        if (!c) return;
         c.innerHTML = txt;
         c.scrollTop = c.scrollHeight;
-      });
+      })
+      .catch(e => {});
   }
+
   function initStatus(sPath, lPath) {
     updateStatus(sPath);
     updateLog(lPath);
-    setInterval(()=>updateStatus(sPath),5000);
-    setInterval(()=>updateLog(lPath),5000);
+    setInterval(() => updateStatus(sPath), 5000);
+    setInterval(() => updateLog(lPath), 5000);
   }
-</script>
-
-<!-- call it straight away -->
-<script>
-  initStatus('{{STATUS_PATH}}','{{LOG_PATH}}');
 </script>
 
 <div class="status-section">
   <div class="status-wrapper">
+    <div class="status-row">
+      <span>Free Heap</span>
+      <span id="heapVal">0 k</span>
+    </div>
     <div class="status-bar-container">
       <div id="heapBar" class="fill"></div>
     </div>
-    <div class="status-label">Free Heap [k]</div>
-    <div id="heapVal" class="status-value">0</div>
   </div>
 
   <div class="status-wrapper">
+    <div class="status-row">
+      <span>Max Alloc</span>
+      <span id="maxAllocVal">0 k</span>
+    </div>
     <div class="status-bar-container">
       <div id="maxAllocBar" class="fill"></div>
     </div>
-    <div class="status-label">Max Alloc [k]</div>
-    <div id="maxAllocVal" class="status-value">0</div>
   </div>
 
   <div class="status-wrapper">
-    <div class="status-bar-container temp">
+    <div class="status-row">
+      <span>Temperature</span>
+      <span id="tempVal">0 C</span>
+    </div>
+    <div class="status-bar-container">
       <div id="tempBar" class="fill"></div>
     </div>
-    <div class="status-label">Temp [°C]</div>
-    <div id="tempVal" class="status-value">0</div>
   </div>
 </div>
-<br>
 
 <div id="logContainer"></div>
+
+<script>
+  initStatus('{{STATUS_PATH}}', '{{LOG_PATH}}');
+</script>
 )rawliteral";
 
 
 String WebStatus::createSystemStatHtmlFragment(const char* statusPath, const char* logPath) {
-  // Copy from PROGMEM, then patch in the real URLs:
   String frag;
   frag.reserve(sizeof(STATUS_FRAGMENT));
   frag = FPSTR(STATUS_FRAGMENT);
   frag.replace("{{STATUS_PATH}}", statusPath);
-  frag.replace("{{LOG_PATH}}",    logPath);
+  frag.replace("{{LOG_PATH}}", logPath);
   return frag;
 }
