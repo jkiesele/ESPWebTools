@@ -108,6 +108,16 @@ public:
         unlock_();
         return copy;
     }
+    
+    Point lastPoint() const {
+        lock_();
+        Point p{0, NAN};
+        if (!points_.empty()) {
+            p = points_.back();
+        }
+        unlock_();
+        return p;
+    }
 
     String routeText() const override {
         const std::vector<Point> copy = points();
