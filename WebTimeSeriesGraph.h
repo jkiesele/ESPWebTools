@@ -20,11 +20,19 @@
  *   - validate timestamp order
  *   - check sensor validity
  *   - smooth/filter data
+ *
+ * Y-axis behavior:
+ *   - yAxisMin <= yAxisMax: fixed y-axis range
+ *   - yAxisMin >  yAxisMax: dynamic y-axis range from current valid points
+ *
+ * Boundary behavior:
+ *   - points exactly at yAxisMin or yAxisMax are displayed on the plot border
+ *   - points outside a fixed y-axis range are not rejected, but drawing is clipped
  */
 class WebTimeSeriesGraph : public WebDisplayBase {
 public:
     struct Point {
-        uint32_t x;
+        uint32_t x;  // normally UTC Unix timestamp in seconds
         float y;
     };
 
@@ -33,12 +41,16 @@ public:
                        const String& title,
                        const String& xLabel,
                        const String& yUnit,
-                       size_t maxEntries = 144)
+                       size_t maxEntries = 144,
+                       float yAxisMin = 1.0f,
+                       float yAxisMax = 0.0f)
         : WebDisplayBase(id, updateIntervalSecs),
           title_(title),
           xLabel_(xLabel),
           yUnit_(yUnit),
-          maxEntries_(maxEntries) {
+          maxEntries_(maxEntries),
+          yAxisMin_(yAxisMin),
+          yAxisMax_(yAxisMax) {
         accessMutex_ = xSemaphoreCreateMutex();
         points_.reserve(maxEntries_);
     }
@@ -108,7 +120,7 @@ public:
         unlock_();
         return copy;
     }
-    
+
     Point lastPoint() const {
         lock_();
         Point p{0, NAN};
@@ -119,11 +131,47 @@ public:
         return p;
     }
 
+    void setYAxisRange(float yMin, float yMax) {
+        lock_();
+        yAxisMin_ = yMin;
+        yAxisMax_ = yMax;
+        unlock_();
+    }
+
+    void setDynamicYAxis() {
+        setYAxisRange(1.0f, 0.0f);
+    }
+
+    bool hasFixedYAxis() const {
+        lock_();
+        const bool fixed = hasFixedYAxisUnlocked_();
+        unlock_();
+        return fixed;
+    }
+
+    float configuredYAxisMin() const {
+        lock_();
+        const float v = yAxisMin_;
+        unlock_();
+        return v;
+    }
+
+    float configuredYAxisMax() const {
+        lock_();
+        const float v = yAxisMax_;
+        unlock_();
+        return v;
+    }
+
     String routeText() const override {
         const std::vector<Point> copy = points();
 
+        float effectiveYMin = NAN;
+        float effectiveYMax = NAN;
+        const bool fixedYAxis = computeEffectiveYAxis_(copy, effectiveYMin, effectiveYMax);
+
         String json;
-        json.reserve(96 + copy.size() * 24);
+        json.reserve(140 + copy.size() * 24);
 
         json += F("{\"id\":\"");
         json += jsonEscape(id());
@@ -133,10 +181,30 @@ public:
         json += jsonEscape(xLabel_);
         json += F("\",\"yUnit\":\"");
         json += jsonEscape(yUnit_);
-        json += F("\",\"points\":[");
+
+        json += F("\",\"yAxisFixed\":");
+        json += fixedYAxis ? F("true") : F("false");
+
+        json += F(",\"yMin\":");
+        if (isfinite(effectiveYMin)) {
+            json += String(effectiveYMin, 3);
+        } else {
+            json += F("null");
+        }
+
+        json += F(",\"yMax\":");
+        if (isfinite(effectiveYMax)) {
+            json += String(effectiveYMax, 3);
+        } else {
+            json += F("null");
+        }
+
+        json += F(",\"points\":[");
 
         for (size_t i = 0; i < copy.size(); ++i) {
-            if (i) json += ',';
+            if (i) {
+                json += ',';
+            }
 
             json += '[';
             json += String(copy[i].x);
@@ -157,7 +225,7 @@ public:
 
     String createHtmlFragment() const override {
         String html;
-        html.reserve(6200);
+        html.reserve(5400);
 
         const String canvasId = id() + F("_canvas");
         const String infoId   = id() + F("_info");
@@ -205,33 +273,32 @@ public:
         html += F("  ctx.clearRect(0,0,w,h);\n");
         html += F("  ctx.font='12px sans-serif';\n");
         html += F("  ctx.lineWidth=1;\n");
-        html += F("  ctx.strokeStyle='#ccc';\n");
-        html += F("  ctx.strokeRect(ml,mt,gw,gh);\n");
 
         html += F("  const title=data.title||'';\n");
         html += F("  const unit=data.yUnit||'';\n");
 
         html += F("  if(pts.length===0){\n");
+        html += F("    ctx.strokeStyle='#ccc';\n");
+        html += F("    ctx.strokeRect(ml,mt,gw,gh);\n");
         html += F("    info.textContent=title + ': no valid data';\n");
         html += F("    return;\n");
         html += F("  }\n");
 
         html += F("  let xmin=Number(pts[0][0]), xmax=Number(pts[0][0]);\n");
-        html += F("  let ymin=Number(pts[0][1]), ymax=Number(pts[0][1]);\n");
         html += F("  for(const p of pts){\n");
         html += F("    const x=Number(p[0]);\n");
-        html += F("    const y=Number(p[1]);\n");
         html += F("    if(x<xmin) xmin=x;\n");
         html += F("    if(x>xmax) xmax=x;\n");
-        html += F("    if(y<ymin) ymin=y;\n");
-        html += F("    if(y>ymax) ymax=y;\n");
         html += F("  }\n");
 
         html += F("  if(xmax===xmin){ xmax=xmin+1; }\n");
-        html += F("  if(ymax===ymin){ ymax=ymin+0.5; ymin=ymin-0.5; }\n");
-        html += F("  const ypad=(ymax-ymin)*0.08;\n");
-        html += F("  ymin-=ypad;\n");
-        html += F("  ymax+=ypad;\n");
+
+        html += F("  let ymin=Number(data.yMin);\n");
+        html += F("  let ymax=Number(data.yMax);\n");
+        html += F("  if(!Number.isFinite(ymin)||!Number.isFinite(ymax)||ymax===ymin){\n");
+        html += F("    ymin=Number(pts[0][1])-0.5;\n");
+        html += F("    ymax=Number(pts[0][1])+0.5;\n");
+        html += F("  }\n");
 
         html += F("  function px(x){ return ml + (x-xmin)/(xmax-xmin)*gw; }\n");
         html += F("  function py(y){ return mt + gh - (y-ymin)/(ymax-ymin)*gh; }\n");
@@ -248,6 +315,11 @@ public:
 
         html += F("  ctx.textAlign='right';\n");
         html += F("  ctx.fillText(fmtTime(xmax), ml+gw, mt+gh+6);\n");
+
+        html += F("  ctx.save();\n");
+        html += F("  ctx.beginPath();\n");
+        html += F("  ctx.rect(ml-1, mt-1, gw+2, gh+2);\n");
+        html += F("  ctx.clip();\n");
 
         html += F("  if(pts.length===1){\n");
         html += F("    ctx.beginPath();\n");
@@ -266,8 +338,14 @@ public:
         html += F("    ctx.stroke();\n");
         html += F("  }\n");
 
+        html += F("  ctx.restore();\n");
+
+        html += F("  ctx.strokeStyle='#ccc';\n");
+        html += F("  ctx.lineWidth=1;\n");
+        html += F("  ctx.strokeRect(ml,mt,gw,gh);\n");
+
         html += F("  const last=pts[pts.length-1];\n");
-        html += F("  info.textContent=title + ': ' + Number(last[1]).toFixed(2) + ' ' + unit + ' | ' + pts.length + ' points';\n");
+        html += F("  info.textContent=title + ': ' + Number(last[1]).toFixed(2) + ' ' + unit + ' | ' + pts.length + ' points' + (data.yAxisFixed ? ' | fixed y-axis' : '');\n");
         html += F("}\n");
 
         html += F("async function poll(){\n");
@@ -308,6 +386,66 @@ private:
         }
     }
 
+    bool hasFixedYAxisUnlocked_() const {
+        return isfinite(yAxisMin_) && isfinite(yAxisMax_) && yAxisMin_ <= yAxisMax_;
+    }
+
+    bool computeEffectiveYAxis_(const std::vector<Point>& points,
+                                float& yMin,
+                                float& yMax) const {
+        lock_();
+        const bool fixed = hasFixedYAxisUnlocked_();
+        const float configuredMin = yAxisMin_;
+        const float configuredMax = yAxisMax_;
+        unlock_();
+
+        if (fixed) {
+            yMin = configuredMin;
+            yMax = configuredMax;
+
+            // Degenerate fixed axis, e.g. 20..20.
+            // Constructor contract allows yMin <= yMax, but rendering needs nonzero height.
+            if (yMax == yMin) {
+                yMin = configuredMin - 0.5f;
+                yMax = configuredMax + 0.5f;
+            }
+
+            return true;
+        }
+
+        yMin = NAN;
+        yMax = NAN;
+
+        for (const auto& p : points) {
+            if (!isfinite(p.y)) {
+                continue;
+            }
+
+            if (!isfinite(yMin) || p.y < yMin) {
+                yMin = p.y;
+            }
+
+            if (!isfinite(yMax) || p.y > yMax) {
+                yMax = p.y;
+            }
+        }
+
+        if (!isfinite(yMin) || !isfinite(yMax)) {
+            return false;
+        }
+
+        if (yMax == yMin) {
+            yMin -= 0.5f;
+            yMax += 0.5f;
+        } else {
+            const float yPad = (yMax - yMin) * 0.08f;
+            yMin -= yPad;
+            yMax += yPad;
+        }
+
+        return false;
+    }
+
     static String htmlEscape_(const String& in) {
         String out;
         out.reserve(in.length() + 8);
@@ -338,18 +476,36 @@ private:
     size_t maxEntries_;
     std::vector<Point> points_;
 
+    float yAxisMin_;
+    float yAxisMax_;
+
     mutable SemaphoreHandle_t accessMutex_{nullptr};
 };
 
 /*
-* example
-
-WebTimeSeriesGraph reservoirTempGraph(
-    "reservoir_temp_graph",
-    30,                 // web poll interval in seconds
-    "Reservoir temperature",
-    "Time",
-    "C",
-    144                 // e.g. 24 h if sampled every 10 min
-);
-*/
+ * Examples
+ *
+ * Dynamic y-axis, old constructor style still works:
+ *
+ * WebTimeSeriesGraph reservoirTempGraph(
+ *     "reservoir_temp_graph",
+ *     30,
+ *     "Reservoir temperature",
+ *     "Time",
+ *     "C",
+ *     144
+ * );
+ *
+ * Fixed y-axis, e.g. percentage:
+ *
+ * WebTimeSeriesGraph fillLevelGraph(
+ *     "fill_level_graph",
+ *     30,
+ *     "Reservoir fill level",
+ *     "Time",
+ *     "%",
+ *     144,
+ *     0.0f,
+ *     100.0f
+ * );
+ */
