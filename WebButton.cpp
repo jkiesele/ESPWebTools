@@ -20,7 +20,8 @@ String WebButton::createHtmlFragment() const
     if (cooldownMs_)
         html += "   if(now-last<" + String(cooldownMs_) + ")return;\n";
     html += "   last=now; btn.disabled=true;\n"
-            "   try{await fetch('";  html += handle();  html += "');}"
+            "   try{const r=await fetch('";  html += handle();  html += "');"
+            "if(r.redirected){window.location.assign(r.url);return;}}"
             " catch(e){}\n";
     if (cooldownMs_)
         html += "   setTimeout(()=>btn.disabled=false,"+String(cooldownMs_)+");\n";
